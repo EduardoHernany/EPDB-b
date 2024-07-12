@@ -1,0 +1,14 @@
+parameter_file /var/www/server/AD4_parameters.dat
+npts 10 10 10                        # num.grid points in xyz
+gridfld 6fba_ab.maps.fld             # grid_data_file
+spacing 0.375                        # spacing(A)
+receptor_types A C NA OA N S Na SA   # receptor atom types
+ligand_types A OA                    # ligand atom types
+receptor 6fba_ab.pdbqt               # macromolecule
+gridcenter 10 10 10                  # xyz-coordinates or auto
+smooth 0.5                           # store minimum energy w/in rad(A)
+map 6fba_ab.A.map                    # atom-specific affinity map
+map 6fba_ab.OA.map                   # atom-specific affinity map
+elecmap 6fba_ab.e.map                # electrostatic potential map
+dsolvmap 6fba_ab.d.map              # desolvation potential map
+dielectric -0.1465                   # <0, AD4 distance-dep.diel;>0, constant

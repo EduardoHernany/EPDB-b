@@ -1,0 +1,77 @@
+# Base Image
+FROM nvidia/cuda:12.2.0-devel-ubuntu22.04 as base
+WORKDIR /home/autodockgpu
+
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    wget \
+    python3-pip \
+    openbabel \
+    zip \
+    unzip \
+    cmake
+
+FROM base as autodockbuild
+
+RUN wget https://github.com/ccsb-scripps/AutoDock-GPU/archive/refs/heads/develop.zip
+
+RUN unzip develop.zip
+
+RUN mv AutoDock-GPU-develop AutoDock-GPU
+
+WORKDIR /home/autodockgpu/AutoDock-GPU
+
+# Set CUDA PATHS
+ENV GPU_INCLUDE_PATH /usr/local/cuda/include
+ENV GPU_LIBRARY_PATH /usr/local/cuda/lib64
+
+RUN make DEVICE=CUDA NUMWI=128
+
+FROM autodockbuild as mglinstall
+
+WORKDIR /home/autodockgpu
+
+RUN wget https://ccsb.scripps.edu/mgltools/download/491/
+
+RUN mv index.html mgltools_x86_64Linux2_1.5.7.tar.gz
+
+RUN tar -xvzf mgltools_x86_64Linux2_1.5.7.tar.gz && \
+    cd mgltools_x86_64Linux2_1.5.7 && \
+    ./install.sh
+
+ENV PATH="/home/autodockgpu/mgltools_x86_64Linux2_1.5.7/bin:${PATH}"
+
+ENV LD_LIBRARY_PATH="/home/autodockgpu/mgltools_x86_64Linux2_1.5.7/lib:${LD_LIBRARY_PATH}"
+
+FROM mglinstall as autodocksuiteinstall
+
+WORKDIR /home/autodockgpu
+
+RUN wget https://autodock.scripps.edu/wp-content/uploads/sites/56/2021/10/autodocksuite-4.2.6-x86_64Linux2.tar
+
+RUN tar -xvf autodocksuite-4.2.6-x86_64Linux2.tar
+
+FROM autodocksuiteinstall as openbabel_install
+
+RUN wget https://github.com/openbabel/openbabel/archive/refs/tags/openbabel-3-1-1.zip && \
+    unzip openbabel-3-1-1.zip && \
+    mkdir build && \
+    cd build && \
+    # Ensure that CMake is run in the directory just above 'build' where 'CMakeLists.txt' exists
+    cmake ../openbabel-openbabel-3-1-1 && \
+    make -j$(nproc) && \
+    make install
+
+FROM openbabel_install as requirements_install
+
+WORKDIR /var/www/server
+COPY ./requirements.txt .
+COPY ./AD4_parameters.dat /home/autodockgpu/x86_64Linux2/
+RUN pip install -r requirements.txt
+
+FROM requirements_install as runner
+COPY . .

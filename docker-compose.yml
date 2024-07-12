@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_DB: "${POSTGRES_DB}"
+      POSTGRES_USER: "${POSTGRES_USER}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+    volumes:
+      - database:/var/lib/postgresql/data
+
+  pgadmin:
+    image: dpage/pgadmin4
+    ports:
+      - "8080:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: "${PGADMIN_DEFAULT_EMAIL}"
+      PGADMIN_DEFAULT_PASSWORD: "${PGADMIN_DEFAULT_PASSWORD}"
+    depends_on:
+      - db
+
+  django:
+    build: .
+    command: >
+      sh -c "env
+            python manage.py migrate &&
+            python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - .:/var/www/server
+      - user_data:/var/www/biodocking
+    ports:
+      - "8000:8000"
+    environment:
+      POSTGRES_DB: "${POSTGRES_DB}"
+      POSTGRES_USER: "${POSTGRES_USER}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+    depends_on:
+      - db
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "15672:15672"  # Web interface
+      - "5672:5672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: "${RABBITMQ_DEFAULT_USER}"
+      RABBITMQ_DEFAULT_PASS: "${RABBITMQ_DEFAULT_PASS}"
+
+  celery:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    volumes:
+      - .:/var/www/server
+      - user_data:/var/www/biodocking
+    depends_on:
+      - django
+      - rabbitmq
+    environment:
+      - DJANGO_SETTINGS_MODULE=apiTCC.settings
+      - NVIDIA_VISIBLE_DEVICES=all
+    command: >
+      sh -c "celery -A apiTCC worker --loglevel=info" --concurrency=1 
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: ["gpu"]
+
+volumes:
+  database:
+  rabbitmq_data:
+  user_data:
+
