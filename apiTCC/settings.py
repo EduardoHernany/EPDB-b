@@ -48,7 +48,7 @@ INSTALLED_APPS = [
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://192.168.0.103:3000",
-    "https://ttc-epdb-f.devapi.app.br/",
+    "https://ttc-epdb-f.devapi.app.br",
     "http://154.12.225.169:3000",
     
     # Outras origens permitidas, se necessário
