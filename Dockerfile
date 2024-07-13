@@ -51,12 +51,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Copy the wait script
-COPY wait_for_db.sh /usr/src/app/wait_for_db.sh
-RUN chmod +x /usr/src/app/wait_for_db.sh
 COPY ./AD4_parameters.dat /home/autodockgpu/x86_64Linux2/
 
 # Use the script as entrypoint
-ENTRYPOINT ["/usr/src/app/wait_for_db.sh"]
 
 EXPOSE 8000
 
