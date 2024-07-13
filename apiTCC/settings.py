@@ -142,14 +142,5 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
-
-# Configuração do Celery
-user_rabbitmq= config("RABBITMQ_DEFAULT_USER")
-password_rabbitmq=config("RABBITMQ_DEFAULT_PASS")
-CELERY_BROKER_URL = 'amqp://'+user_rabbitmq+':'+password_rabbitmq+'@rabbitmq:5672/'
-
-CELERY_WORKER_CONCURRENCY = 1
-#CELERY_BROKER_URL = 'amqp://localhost'
-
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

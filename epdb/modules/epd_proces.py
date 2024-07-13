@@ -15,8 +15,6 @@ prep_gpf_path = os.path.expanduser("/home/autodockgpu/mgltools_x86_64Linux2_1.5.
 prep_dpf_path = os.path.expanduser("/home/autodockgpu/mgltools_x86_64Linux2_1.5.7/MGLToolsPckgs/AutoDockTools/Utilities24/prepare_dpf4.py")
 autogrid_path = os.path.expanduser("/home/autodockgpu/x86_64Linux2/autogrid4")
 autoodock_path = os.path.expanduser("/home/autodockgpu/x86_64Linux2/autodock4")
-autodockgpu_path = os.path.expanduser("/home/autodockgpu/AutoDock-GPU/bin/autodock_gpu_128wi")
-obabel_path = os.path.expanduser("/home/autodockgpu/build/bin/obabel")
 ad4_parameters_path = os.path.expanduser("/var/www/server/AD4_parameters.dat")
 
 #/home/eduardo/x86_64Linux2/autodock4 -p 100625391_7tbc_a.dpf -l scoring_result.log
@@ -32,9 +30,8 @@ def process_epdb(epdb_instance):
     ligand_file_path = epdb_instance.ligand_file.path
     receptor_file_path = epdb_instance.receptor_file.path
     work_dir = os.path.dirname(ligand_file_path)
-    output_dir = os.path.join(settings.MEDIA_ROOT, "docking", epdb_instance.nome_proces)
-    os.makedirs(output_dir, exist_ok=True)
-    print(f"Output directory created at {output_dir}")
+    
+    print(f"Output directory created at {work_dir}")
     
     # # Prepare ligand
     ligand_output_path = os.path.splitext(ligand_file_path)[0] + ".pdbqt"
@@ -49,7 +46,7 @@ def process_epdb(epdb_instance):
     print("Receptor preparation completed.")
 
     # Prepare grid parameter file
-    output_gpf = os.path.join(output_dir, 'gridbox.gpf')
+    output_gpf = os.path.join(work_dir, 'gridbox.gpf')
     gridcenter = f'gridcenter={epdb_instance.gridcenter}'
     gridsize = f'npts={epdb_instance.gridsize}'
     print("Preparing grid parameter file (GPF)...")
@@ -68,9 +65,9 @@ def process_epdb(epdb_instance):
     # Run AutoGrid
     print("Running AutoGrid...")
     sed_command = f"sed -i '1i\\parameter_file {os.path.abspath(ad4_parameters_path)}' {output_gpf}"
-    execute_command(sed_command, shell=True, cwd=output_dir)
+    execute_command(sed_command, shell=True, cwd=work_dir)
     autogrid_command = [autogrid_path, '-p', output_gpf, "-l", output_gpf.replace('.gpf', '.glg')]
-    execute_command(autogrid_command, cwd=output_dir)
+    execute_command(autogrid_command, cwd=work_dir)
     print("AutoGrid completed.")
     
     print("Preparing arquivo DPF...")
@@ -83,7 +80,7 @@ def process_epdb(epdb_instance):
     execute_command(dpf_command, cwd=work_dir)
     print("DPF preparation completed.")
     
-    dpf_output = os.path.join(output_dir, f'{Path(ligand_file_path).stem}_{Path(receptor_file_path).stem}.dpf')
+    dpf_output = os.path.join(work_dir, f'{Path(ligand_file_path).stem}_{Path(receptor_file_path).stem}.dpf')
     with open(dpf_output, 'r') as file:
         lines = file.readlines()
 
@@ -108,12 +105,12 @@ def process_epdb(epdb_instance):
     print("Autodock para epdb executado com sucesso.")  
     
    # Extrair dados do arquivo scoring_result.log
-    scoring_log_path = os.path.join(output_dir, "scoring_result.log")
+    scoring_log_path = os.path.join(work_dir, "scoring_result.log")
     with open(scoring_log_path, 'r') as file:
         log_content = file.read()
 
     # Extrair dados do arquivo scoring_result.log
-    scoring_log_path = os.path.join(output_dir, "scoring_result.log")
+    scoring_log_path = os.path.join(work_dir, "scoring_result.log")
     with open(scoring_log_path, 'r') as file:
         log_content = file.read()
 
@@ -135,9 +132,11 @@ def process_epdb(epdb_instance):
             extracted_data[key] = match.group(1)
 
     # Salvar os dados extraídos em um arquivo
-    output_data_path = os.path.join(output_dir, "extracted_data.txt")
+    output_data_path = os.path.join(work_dir, "extracted_data.txt")
     with open(output_data_path, 'w') as file:
         for key, value in extracted_data.items():
             file.write(f"{key}: {value}\n")
 
     print(f"Dados extraídos salvos em {output_data_path}")
+    
+    return extracted_data

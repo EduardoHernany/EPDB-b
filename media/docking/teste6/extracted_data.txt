@@ -1,4 +1,0 @@
-Estimated Free Energy of Binding: +2.79e+08
-Final Intermolecular Energy: +2.79e+08
-vdW \+ Hbond \+ desolv Energy: +1.39e+08
-Electrostatic Energy: +1.39e+08

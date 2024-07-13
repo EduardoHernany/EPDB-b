@@ -1,3 +1,7 @@
+import json
+import os
+import shutil
+import uuid
 from django.shortcuts import render
 
 from epdb.models import EpdbEnergy
@@ -9,8 +13,9 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from rest_framework import views, status
 from rest_framework.response import Response
-
-from epdb.tasks import run_epd
+from io import BytesIO
+import zipfile
+from django.http import HttpResponse
 # Create your views here.
 
 class DockingView(viewsets.ModelViewSet):
@@ -55,21 +60,48 @@ class DockingView(viewsets.ModelViewSet):
             return Response({'error': 'Missing files'}, status=status.HTTP_400_BAD_REQUEST)
         
         nome_proces = request.data.get('nome_proces')
-        if EpdbEnergy.objects.filter(nome_proces=nome_proces).exists():
-            return Response({'error': 'A docking process with this name already exists.'}, status=status.HTTP_409_CONFLICT)  
-        #----------------TUDO CERTO PARA EXECUÇÂO--------------------------
-        data = {
-            'nome_proces': request.data.get('nome_proces'),
-            'ligand_file': ligand_file,
-            'receptor_file': receptor_file,
-            'gridsize': request.data.get('gridsize'),
-            'gridcenter': request.data.get('gridcenter')
-        }
-        serializer = EpdbEnergyserializer(data=data) 
-        if serializer.is_valid():
-            instance = serializer.save()
-            # Pass the instance ID to the Celery task
-            process_epdb.delay(instance.id)
-            return Response({'message': 'Instância criada com sucesso!'}, status=status.HTTP_202_ACCEPTED)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        gridsize = request.data.get('gridsize')
+        gridcenter = request.data.get('gridcenter')
+
+        # Gerar um identificador único para o diretório de upload
+        uiddirsave = uuid.uuid4().hex
+
+        # Criação da instância do modelo diretamente
+        epdb = EpdbEnergy(
+            nome_proces=nome_proces,
+            gridsize=gridsize,
+            gridcenter=gridcenter
+        )
+        epdb.set_uiddirsave(uiddirsave)
+        epdb.ligand_file = ligand_file
+        epdb.receptor_file = receptor_file
+        
+        epdb.save()
+
+        work_dir = os.path.dirname(epdb.ligand_file.path)
+        data_out = process_epdb(epdb)
+
+        # Criação do arquivo zip
+        zip_buffer = BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            for foldername, subfolders, filenames in os.walk(work_dir):
+                for filename in filenames:
+                    file_path = os.path.join(foldername, filename)
+                    arcname = os.path.relpath(file_path, work_dir)
+                    zip_file.write(file_path, arcname)
+            
+            # Adicionando data_out como arquivo JSON no zip
+            data_out_file_path = os.path.join(work_dir, 'data_out.json')
+            with open(data_out_file_path, 'w') as f:
+                json.dump(data_out, f)
+            zip_file.write(data_out_file_path, 'data_out.json')
+
+        zip_buffer.seek(0)
+
+        response = HttpResponse(zip_buffer, content_type='application/zip')
+        response['Content-Disposition'] = f'attachment; filename={nome_proces}.zip'
+
+        # Exclusão de todos os arquivos e diretório após o envio da resposta
+        shutil.rmtree(work_dir)
+        
+        return response
